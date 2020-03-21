@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Shape.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.bloomfilter.hasher</a> &gt; <span class="el_source">Shape.java</span></div><h1>Shape.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.bloomfilter.hasher;
+
+import java.util.Objects;
+
+/**
+ * The definition of a Bloom filter shape.
+ *
+ * &lt;p&gt; This class contains the values for the filter configuration and is used to
+ * convert a Hasher into a BloomFilter as well as verify that two Bloom filters are
+ * compatible. (i.e. can be compared or merged)&lt;/p&gt;
+ *
+ * &lt;h2&gt;Interrelatedness of values&lt;/h2&gt;
+ *
+ * &lt;dl&gt; &lt;dt&gt;Number of Items (AKA: {@code n})&lt;/dt&gt;
+ * &lt;dd&gt;{@code n = ceil(m / (-k / log(1 - exp(log(p) / k))))}&lt;/dd&gt; &lt;dt&gt;Probability of
+ * Collision (AKA: {@code p})&lt;/dt&gt; &lt;dd&gt;{@code p =  (1 - exp(-kn/m))^k}&lt;/dd&gt; &lt;dt&gt;Number
+ * of Bits (AKA: {@code m})&lt;/dt&gt;
+ * &lt;dd&gt;{@code m = ceil((n * log(p)) / log(1 / pow(2, log(2))))}&lt;/dd&gt; &lt;dt&gt;Number of
+ * Functions (AKA: {@code k})&lt;/dt&gt; &lt;dd&gt;{@code k = round((m / n) * log(2))}&lt;/dd&gt; &lt;/dl&gt;
+ *
+ * &lt;h2&gt;Comparisons&lt;/h2&gt; &lt;p&gt; For purposes of equality checking and hashCode
+ * calculations a {@code Shape} is defined by the hashing function identity, the number of
+ * bits ({@code m}), and the number of functions ({@code k}). &lt;/p&gt;
+ *
+ * @see &lt;a href=&quot;http://hur.st/bloomfilter?n=3&amp;p=1.0E-5&quot;&gt;Bloom Filter calculator&lt;/a&gt;
+ * @see &lt;a href=&quot;https://en.wikipedia.org/wiki/Bloom_filter&quot;&gt;Bloom filter
+ * [Wikipedia]&lt;/a&gt;
+ * @since 4.5
+ */
+public class Shape {
+
+    /**
+     * The natural logarithm of 2. Used in several calculations. approx 0.693147180
+     */
+<span class="fc" id="L51">    private static final double LOG_OF_2 = Math.log(2.0);</span>
+
+    /**
+     * 1 / 2^log(2) approx -0.090619058. Used in calculating the number of bits.
+     */
+<span class="fc" id="L56">    private static final double DENOMINATOR = Math.log(1.0 / (Math.pow(2.0, LOG_OF_2)));</span>
+
+    /**
+     * number of items in the filter. (AKA: {@code n})
+     */
+    private final int numberOfItems;
+
+    /**
+     * number of bits in the filter. (AKA: {@code m})
+     */
+    private final int numberOfBits;
+
+    /**
+     * number of hash functions. (AKA: {@code k})
+     */
+    private final int numberOfHashFunctions;
+
+    /**
+     * The hash code for this filter.
+     */
+    private final int hashCode;
+
+    /**
+     * The identity of the hasher function.
+     */
+    private final HashFunctionIdentity hashFunctionIdentity;
+
+    /**
+     * Constructs a filter configuration with the specified number of items and
+     * probability.
+     *
+     * @param hashFunctionIdentity The HashFunctionIdentity of the hash function this shape uses.
+     * @param probability The probability of duplicates. Must be in the range
+     * (0.0,1.0).
+     * @param numberOfBits The number of bits in the filter.
+     * @param numberOfHashFunctions The number of hash functions in the filter.
+     */
+    public Shape(final HashFunctionIdentity hashFunctionIdentity, final double probability, final int numberOfBits,
+<span class="fc" id="L94">        final int numberOfHashFunctions) {</span>
+<span class="fc" id="L95">        Objects.requireNonNull(hashFunctionIdentity, &quot;hashFunctionIdentity&quot;);</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">        if (probability &lt;= 0.0) {</span>
+<span class="fc" id="L97">            throw new IllegalArgumentException(&quot;Probability must be greater than 0.0&quot;);</span>
+        }
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        if (probability &gt;= 1.0) {</span>
+<span class="fc" id="L100">            throw new IllegalArgumentException(&quot;Probability must be less than 1.0&quot;);</span>
+        }
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        if (numberOfBits &lt; 8) {</span>
+<span class="fc" id="L103">            throw new IllegalArgumentException(&quot;Number of bits must be greater than or equal to 8&quot;);</span>
+        }
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        if (numberOfHashFunctions &lt; 1) {</span>
+<span class="fc" id="L106">            throw new IllegalArgumentException(&quot;Number of hash functions must be greater than or equal to 8&quot;);</span>
+        }
+<span class="fc" id="L108">        this.hashFunctionIdentity = hashFunctionIdentity;</span>
+<span class="fc" id="L109">        this.numberOfBits = numberOfBits;</span>
+<span class="fc" id="L110">        this.numberOfHashFunctions = numberOfHashFunctions;</span>
+
+        // n = ceil(m / (-k / log(1 - exp(log(p) / k))))
+<span class="fc" id="L113">        final double n = Math.ceil(numberOfBits /</span>
+<span class="fc" id="L114">            (-numberOfHashFunctions / Math.log(1 - Math.exp(Math.log(probability) / numberOfHashFunctions))));</span>
+
+        // log of probability is always &lt; 0
+        // number of hash functions is &gt;= 1
+        // e^x where x &lt; 0 = [0,1)
+        // log 1-e^x = [log1, log0) = &lt;0 with an effective lower limit of -53
+        // numberOfBits/ (-numberOfHashFunctions / [-53,0) ) &gt;0
+        // ceil( &gt;0 ) &gt;= 1
+        // so we can not produce a negative value thus we don't check for it.
+        //
+        // similarly we can not produce a number greater than numberOfBits so we
+        // do not have to check for Integer.MAX_VALUE either.
+<span class="fc" id="L126">        this.numberOfItems = (int) n;</span>
+<span class="fc" id="L127">        this.hashCode = generateHashCode();</span>
+        // check that probability is within range
+<span class="fc" id="L129">        getProbability();</span>
+<span class="fc" id="L130">    }</span>
+
+    /**
+     * Constructs a filter configuration with the specified number of items and
+     * probability. &lt;p&gt; The actual probability will be approximately equal to the
+     * desired probability but will be dependent upon the calculated bloom filter size
+     * and function count. &lt;/p&gt;
+     *
+     * @param hashFunctionIdentity The HashFunctionIdentity of the hash function this shape uses.
+     * @param numberOfItems Number of items to be placed in the filter.
+     * @param probability The desired probability of duplicates. Must be in the range
+     * (0.0,1.0).
+     */
+<span class="fc" id="L143">    public Shape(final HashFunctionIdentity hashFunctionIdentity, final int numberOfItems, final double probability) {</span>
+<span class="fc" id="L144">        Objects.requireNonNull(hashFunctionIdentity, &quot;hashFunctionIdentity&quot;);</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">        if (numberOfItems &lt; 1) {</span>
+<span class="fc" id="L146">            throw new IllegalArgumentException(&quot;Number of Items must be greater than 0&quot;);</span>
+        }
+<span class="fc bfc" id="L148" title="All 2 branches covered.">        if (probability &lt;= 0.0) {</span>
+<span class="fc" id="L149">            throw new IllegalArgumentException(&quot;Probability must be greater than 0.0&quot;);</span>
+        }
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        if (probability &gt;= 1.0) {</span>
+<span class="fc" id="L152">            throw new IllegalArgumentException(&quot;Probability must be less than 1.0&quot;);</span>
+        }
+<span class="fc" id="L154">        this.hashFunctionIdentity = hashFunctionIdentity;</span>
+<span class="fc" id="L155">        this.numberOfItems = numberOfItems;</span>
+        /*
+         * number of bits is called &quot;m&quot; in most mathematical statement describing
+         * bloom filters so we use it here.
+         */
+<span class="fc" id="L160">        final double m = Math.ceil(numberOfItems * Math.log(probability) / DENOMINATOR);</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        if (m &gt; Integer.MAX_VALUE) {</span>
+<span class="fc" id="L162">            throw new IllegalArgumentException(&quot;Resulting filter has more than &quot; + Integer.MAX_VALUE + &quot; bits&quot;);</span>
+        }
+<span class="fc" id="L164">        this.numberOfBits = (int) m;</span>
+<span class="fc" id="L165">        this.numberOfHashFunctions = calculateNumberOfHashFunctions(numberOfItems, numberOfBits);</span>
+<span class="fc" id="L166">        this.hashCode = generateHashCode();</span>
+        // check that probability is within range
+<span class="fc" id="L168">        getProbability();</span>
+<span class="fc" id="L169">    }</span>
+
+    /**
+     * Constructs a filter configuration with the specified number of items and
+     * probability.
+     *
+     * @param hashFunctionIdentity The HashFunctionIdentity of the hash function this shape uses.
+     * @param numberOfItems Number of items to be placed in the filter.
+     * @param numberOfBits The number of bits in the filter.
+     */
+<span class="fc" id="L179">    public Shape(final HashFunctionIdentity hashFunctionIdentity, final int numberOfItems, final int numberOfBits) {</span>
+<span class="fc" id="L180">        Objects.requireNonNull(hashFunctionIdentity, &quot;hashFunctionIdentity&quot;);</span>
+<span class="fc bfc" id="L181" title="All 2 branches covered.">        if (numberOfItems &lt; 1) {</span>
+<span class="fc" id="L182">            throw new IllegalArgumentException(&quot;Number of Items must be greater than 0&quot;);</span>
+        }
+<span class="fc bfc" id="L184" title="All 2 branches covered.">        if (numberOfBits &lt; 8) {</span>
+<span class="fc" id="L185">            throw new IllegalArgumentException(&quot;Number of Bits must be greater than or equal to 8&quot;);</span>
+        }
+<span class="fc" id="L187">        this.hashFunctionIdentity = hashFunctionIdentity;</span>
+<span class="fc" id="L188">        this.numberOfItems = numberOfItems;</span>
+<span class="fc" id="L189">        this.numberOfBits = numberOfBits;</span>
+<span class="fc" id="L190">        this.numberOfHashFunctions = calculateNumberOfHashFunctions(numberOfItems, numberOfBits);</span>
+<span class="fc" id="L191">        this.hashCode = generateHashCode();</span>
+        // check that probability is within range
+<span class="fc" id="L193">        getProbability();</span>
+<span class="fc" id="L194">    }</span>
+
+    /**
+     * Constructs a filter configuration with the specified number of items and
+     * probability.
+     *
+     * @param hashFunctionIdentity The HashFunctionIdentity of the hash function this shape uses.
+     * @param numberOfItems Number of items to be placed in the filter.
+     * @param numberOfBits The number of bits in the filter.
+     * @param numberOfHashFunctions The number of hash functions in the filter.
+     */
+    public Shape(final HashFunctionIdentity hashFunctionIdentity, final int numberOfItems, final int numberOfBits,
+<span class="fc" id="L206">        final int numberOfHashFunctions) {</span>
+<span class="fc" id="L207">        Objects.requireNonNull(hashFunctionIdentity, &quot;hashFunctionIdentity&quot;);</span>
+<span class="fc bfc" id="L208" title="All 2 branches covered.">        if (numberOfItems &lt; 1) {</span>
+<span class="fc" id="L209">            throw new IllegalArgumentException(&quot;Number of Items must be greater than 0&quot;);</span>
+        }
+<span class="fc bfc" id="L211" title="All 2 branches covered.">        if (numberOfBits &lt; 8) {</span>
+<span class="fc" id="L212">            throw new IllegalArgumentException(&quot;Number of Bits must be greater than or equal to 8&quot;);</span>
+        }
+<span class="fc bfc" id="L214" title="All 2 branches covered.">        if (numberOfHashFunctions &lt; 1) {</span>
+<span class="fc" id="L215">            throw new IllegalArgumentException(&quot;Number of Hash Functions must be greater than or equal to 8&quot;);</span>
+        }
+<span class="fc" id="L217">        this.hashFunctionIdentity = hashFunctionIdentity;</span>
+<span class="fc" id="L218">        this.numberOfItems = numberOfItems;</span>
+<span class="fc" id="L219">        this.numberOfBits = numberOfBits;</span>
+<span class="fc" id="L220">        this.numberOfHashFunctions = numberOfHashFunctions;</span>
+<span class="fc" id="L221">        this.hashCode = generateHashCode();</span>
+        // check that probability is within range
+<span class="fc" id="L223">        getProbability();</span>
+<span class="fc" id="L224">    }</span>
+
+    /**
+     * Calculates the number of hash functions given numberOfItems and numberofBits.
+     * This is a method so that the calculation is consistent across all constructors.
+     *
+     * @param numberOfItems the number of items in the filter.
+     * @param numberOfBits the number of bits in the filter.
+     * @return the optimal number of hash functions.
+     */
+    private static int calculateNumberOfHashFunctions(final int numberOfItems, final int numberOfBits) {
+        /*
+         * k = round((m / n) * log(2)) We change order so that we use real math rather
+         * than integer math.
+         */
+<span class="fc" id="L239">        final long k = Math.round(LOG_OF_2 * numberOfBits / numberOfItems);</span>
+<span class="fc bfc" id="L240" title="All 2 branches covered.">        if (k &lt; 1) {</span>
+<span class="fc" id="L241">            throw new IllegalArgumentException(</span>
+<span class="fc" id="L242">                String.format(&quot;Filter to small: Calculated number of hash functions (%s) was less than 1&quot;, k));</span>
+        }
+        /*
+         * normally we would check that numberofHashFunctions &lt;= Integer.MAX_VALUE but
+         * since numberOfBits is at most Integer.MAX_VALUE the numerator of
+         * numberofHashFunctions is log(2) * Integer.MAX_VALUE = 646456992.9449 the
+         * value of k can not be above Integer.MAX_VALUE.
+         */
+<span class="fc" id="L250">        return (int) k;</span>
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+<span class="fc bfc" id="L255" title="All 2 branches covered.">        if (o instanceof Shape) {</span>
+<span class="fc" id="L256">            final Shape other = (Shape) o;</span>
+<span class="fc" id="L257">            return</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">                other.getNumberOfBits() == getNumberOfBits() &amp;&amp;</span>
+<span class="fc bfc" id="L259" title="All 2 branches covered.">                other.getNumberOfHashFunctions() == getNumberOfHashFunctions() &amp;&amp;</span>
+<span class="fc bfc" id="L260" title="All 2 branches covered.">                HashFunctionValidator.areEqual(getHashFunctionIdentity(),</span>
+<span class="fc" id="L261">                                               other.getHashFunctionIdentity());</span>
+        }
+<span class="fc" id="L263">        return false;</span>
+    }
+
+    private int generateHashCode() {
+<span class="fc" id="L267">        return Objects.hash(hashFunctionIdentity, numberOfBits, numberOfHashFunctions);</span>
+    }
+
+    /**
+     * Gets the HashFunctionIdentity of the hash function this shape uses.
+     * @return the HashFunctionIdentity of the hash function this shape uses.
+     */
+    public HashFunctionIdentity getHashFunctionIdentity() {
+<span class="fc" id="L275">        return hashFunctionIdentity;</span>
+    }
+
+    /**
+     * Gets the number of bits in the Bloom filter. AKA: {@code m}
+     *
+     * @return the number of bits in the Bloom filter.
+     */
+    public int getNumberOfBits() {
+<span class="fc" id="L284">        return numberOfBits;</span>
+    }
+
+    /**
+     * Gets the number of bytes in the Bloom filter.
+     *
+     * @return the number of bytes in the Bloom filter.
+     */
+    public int getNumberOfBytes() {
+<span class="fc" id="L293">        return Double.valueOf(Math.ceil(numberOfBits / (double) Byte.SIZE )).intValue();</span>
+    }
+
+    /**
+     * Gets the number of hash functions used to construct the filter. AKA: {@code k}
+     *
+     * @return the number of hash functions used to construct the filter.
+     */
+    public int getNumberOfHashFunctions() {
+<span class="fc" id="L302">        return numberOfHashFunctions;</span>
+    }
+
+    /**
+     * Gets the number of items that are expected in the filter. AKA: {@code n}
+     *
+     * @return the number of items.
+     */
+    public int getNumberOfItems() {
+<span class="fc" id="L311">        return numberOfItems;</span>
+    }
+
+    /**
+     * Calculates the probability of false positives (AKA: {@code p} given
+     * numberOfItems, numberofBits and numberOfHashFunctions. This is a method so that
+     * the calculation is consistent across all constructors.
+     *
+     * @return the probability of collision.
+     */
+    public final double getProbability() {
+        // (1 - exp(-kn/m))^k
+<span class="fc" id="L323">        final double p = Math.pow(1.0 - Math.exp(-1.0 * numberOfHashFunctions * numberOfItems / numberOfBits),</span>
+            numberOfHashFunctions);
+        /*
+         * We do not need to check for p &lt; = since we only allow positive values for
+         * parameters and the closest we can come to exp(-kn/m) == 1 is
+         * exp(-1/Integer.MAX_INT) approx 0.9999999995343387 so Math.pow( x, y ) will
+         * always be 0&lt;x&lt;1 and y&gt;0
+         */
+<span class="fc bfc" id="L331" title="All 2 branches covered.">        if (p &gt;= 1.0) {</span>
+<span class="fc" id="L332">            throw new IllegalArgumentException(</span>
+<span class="fc" id="L333">                String.format(&quot;Calculated probability (%s) is greater than or equal to 1.0&quot;, p));</span>
+        }
+<span class="fc" id="L335">        return p;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L340">        return hashCode;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L345">        return String.format(&quot;Shape[ %s n=%s m=%s k=%s ]&quot;,</span>
+<span class="fc" id="L346">            HashFunctionIdentity.asCommonString(hashFunctionIdentity),</span>
+<span class="fc" id="L347">            numberOfItems, numberOfBits, numberOfHashFunctions);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

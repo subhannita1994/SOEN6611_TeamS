@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="iso-8859-1"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CopyDirectoryVisitor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons IO</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.io.file</a> &gt; <span class="el_source">CopyDirectoryVisitor.java</span></div><h1>CopyDirectoryVisitor.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.io.file;
+
+import java.io.IOException;
+import java.nio.file.CopyOption;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+
+import org.apache.commons.io.file.Counters.PathCounters;
+
+/**
+ * Copies a source directory to a target directory.
+ *
+ * @since 2.7
+ */
+public class CopyDirectoryVisitor extends CountingPathVisitor {
+
+<span class="fc" id="L36">    private static final CopyOption[] EMPTY_COPY_OPTIONS = new CopyOption[0];</span>
+
+    private final CopyOption[] copyOptions;
+    private final Path sourceDirectory;
+    private final Path targetDirectory;
+
+    /**
+     * Constructs a new visitor that deletes files except for the files and directories explicitly given.
+     *
+     * @param pathCounter How to count visits.
+     * @param sourceDirectory The source directory
+     * @param targetDirectory The target directory
+     * @param copyOptions Specifies how the copying should be done.
+     */
+    public CopyDirectoryVisitor(final PathCounters pathCounter, final Path sourceDirectory, final Path targetDirectory,
+            final CopyOption... copyOptions) {
+<span class="fc" id="L52">        super(pathCounter);</span>
+<span class="fc" id="L53">        this.sourceDirectory = sourceDirectory;</span>
+<span class="fc" id="L54">        this.targetDirectory = targetDirectory;</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">        this.copyOptions = copyOptions == null ? EMPTY_COPY_OPTIONS : copyOptions.clone();</span>
+<span class="fc" id="L56">    }</span>
+
+    @Override
+    public FileVisitResult preVisitDirectory(final Path directory, final BasicFileAttributes attributes)
+            throws IOException {
+<span class="fc" id="L61">        final Path newTargetDir = targetDirectory.resolve(sourceDirectory.relativize(directory));</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (Files.notExists(newTargetDir)) {</span>
+<span class="fc" id="L63">            Files.createDirectory(newTargetDir);</span>
+        }
+<span class="fc" id="L65">        return super.preVisitDirectory(directory, attributes);</span>
+    }
+
+    @Override
+    public FileVisitResult visitFile(final Path sourceFile, final BasicFileAttributes attributes) throws IOException {
+<span class="fc" id="L70">        final Path targetFile = targetDirectory.resolve(sourceDirectory.relativize(sourceFile));</span>
+<span class="fc" id="L71">        Files.copy(sourceFile, targetFile, copyOptions);</span>
+<span class="fc" id="L72">        return super.visitFile(targetFile, attributes);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,602 @@
+<?xml version="1.0" encoding="iso-8859-1"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PathUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons IO</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.io.file</a> &gt; <span class="el_source">PathUtils.java</span></div><h1>PathUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.io.file;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URL;
+import java.nio.file.CopyOption;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.NotDirectoryException;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.file.Counters.PathCounters;
+
+/**
+ * NIO Path utilities.
+ *
+ * @since 2.7
+ */
+public final class PathUtils {
+
+    /**
+     * Accumulates file tree information in a {@link AccumulatorPathVisitor}.
+     * 
+     * @param directory The directory to accumulate information.
+     * @param maxDepth See {@link Files#walkFileTree(Path,Set,int,FileVisitor)}.
+     * @param linkOptions Options indicating how symbolic links are handled.
+     * @param fileVisitOptions See {@link Files#walkFileTree(Path,Set,int,FileVisitor)}.
+     * @throws IOException if an I/O error is thrown by a visitor method.
+     * @return file tree information.
+     */
+    private static AccumulatorPathVisitor accumulate(final Path directory, final int maxDepth,
+            final LinkOption[] linkOptions, final FileVisitOption[] fileVisitOptions) throws IOException {
+<span class="fc" id="L66">        return visitFileTree(AccumulatorPathVisitor.withLongCounters(), directory,</span>
+<span class="fc" id="L67">                toFileVisitOptionSet(fileVisitOptions), maxDepth);</span>
+    }
+
+    /**
+     * Private worker/holder that computes and tracks relative path names and their equality. We reuse the sorted
+     * relative lists when comparing directories.
+     */
+    private static class RelativeSortedPaths {
+
+        final boolean equals;
+        final List&lt;Path&gt; relativeDirList1; // might need later?
+        final List&lt;Path&gt; relativeDirList2; // might need later?
+        final List&lt;Path&gt; relativeFileList1;
+        final List&lt;Path&gt; relativeFileList2;
+
+        /**
+         * Constructs and initializes a new instance by accumulating directory and file info.
+         * 
+         * @param dir1 First directory to compare.
+         * @param dir2 Seconds directory to compare.
+         * @param maxDepth See {@link Files#walkFileTree(Path,Set,int,FileVisitor)}.
+         * @param linkOptions Options indicating how symbolic links are handled.
+         * @param fileVisitOptions See {@link Files#walkFileTree(Path,Set,int,FileVisitor)}.
+         * @throws IOException if an I/O error is thrown by a visitor method.
+         */
+        private RelativeSortedPaths(final Path dir1, final Path dir2, final int maxDepth,
+<span class="fc" id="L93">                final LinkOption[] linkOptions, final FileVisitOption[] fileVisitOptions) throws IOException {</span>
+<span class="fc" id="L94">            List&lt;Path&gt; tmpRelativeDirList1 = null;</span>
+<span class="fc" id="L95">            List&lt;Path&gt; tmpRelativeDirList2 = null;</span>
+<span class="fc" id="L96">            List&lt;Path&gt; tmpRelativeFileList1 = null;</span>
+<span class="fc" id="L97">            List&lt;Path&gt; tmpRelativeFileList2 = null;</span>
+<span class="fc bfc" id="L98" title="All 4 branches covered.">            if (dir1 == null &amp;&amp; dir2 == null) {</span>
+<span class="fc" id="L99">                equals = true;</span>
+<span class="fc bfc" id="L100" title="All 6 branches covered.">            } else if (dir1 == null ^ dir2 == null) {</span>
+<span class="fc" id="L101">                equals = false;</span>
+            } else {
+<span class="fc" id="L103">                final boolean parentDirExists1 = Files.exists(dir1, linkOptions);</span>
+<span class="fc" id="L104">                final boolean parentDirExists2 = Files.exists(dir2, linkOptions);</span>
+<span class="pc bpc" id="L105" title="1 of 4 branches missed.">                if (!parentDirExists1 || !parentDirExists2) {</span>
+<span class="pc bpc" id="L106" title="2 of 4 branches missed.">                    equals = !parentDirExists1 &amp;&amp; !parentDirExists2;</span>
+                } else {
+<span class="fc" id="L108">                    AccumulatorPathVisitor visitor1 = accumulate(dir1, maxDepth, linkOptions, fileVisitOptions);</span>
+<span class="fc" id="L109">                    AccumulatorPathVisitor visitor2 = accumulate(dir2, maxDepth, linkOptions, fileVisitOptions);</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">                    if (visitor1.getDirList().size() != visitor2.getDirList().size()</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">                            || visitor1.getFileList().size() != visitor2.getFileList().size()) {</span>
+<span class="fc" id="L112">                        equals = false;</span>
+                    } else {
+<span class="fc" id="L114">                        tmpRelativeDirList1 = visitor1.relativizeDirectories(dir1, true, null);</span>
+<span class="fc" id="L115">                        tmpRelativeDirList2 = visitor2.relativizeDirectories(dir2, true, null);</span>
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">                        if (!tmpRelativeDirList1.equals(tmpRelativeDirList2)) {</span>
+<span class="nc" id="L117">                            equals = false;</span>
+                        } else {
+<span class="fc" id="L119">                            tmpRelativeFileList1 = visitor1.relativizeFiles(dir1, true, null);</span>
+<span class="fc" id="L120">                            tmpRelativeFileList2 = visitor2.relativizeFiles(dir2, true, null);</span>
+<span class="fc" id="L121">                            equals = tmpRelativeFileList1.equals(tmpRelativeFileList2);</span>
+                        }
+                    }
+                }
+            }
+<span class="fc" id="L126">            relativeDirList1 = tmpRelativeDirList1;</span>
+<span class="fc" id="L127">            relativeDirList2 = tmpRelativeDirList2;</span>
+<span class="fc" id="L128">            relativeFileList1 = tmpRelativeFileList1;</span>
+<span class="fc" id="L129">            relativeFileList2 = tmpRelativeFileList2;</span>
+<span class="fc" id="L130">        }</span>
+    }
+
+    /**
+     * Empty {@link FileVisitOption} array.
+     */
+<span class="fc" id="L136">    public static final FileVisitOption[] EMPTY_FILE_VISIT_OPTION_ARRAY = new FileVisitOption[0];</span>
+
+    /**
+     * Empty {@link LinkOption} array.
+     */
+<span class="fc" id="L141">    public static final LinkOption[] EMPTY_LINK_OPTION_ARRAY = new LinkOption[0];</span>
+
+    /**
+     * Empty {@link OpenOption} array.
+     */
+<span class="fc" id="L146">    public static final OpenOption[] EMPTY_OPEN_OPTION_ARRAY = new OpenOption[0];</span>
+
+    /**
+     * Cleans a directory including sub-directories without deleting directories.
+     *
+     * @param directory directory to clean.
+     * @return The visitation path counters.
+     * @throws IOException if an I/O error is thrown by a visitor method.
+     */
+    public static PathCounters cleanDirectory(final Path directory) throws IOException {
+<span class="fc" id="L156">        return visitFileTree(CleaningPathVisitor.withLongCounters(), directory).getPathCounters();</span>
+    }
+
+    /**
+     * Copies a directory to another directory.
+     *
+     * @param sourceDirectory The source directory.
+     * @param targetDirectory The target directory.
+     * @param copyOptions Specifies how the copying should be done.
+     * @return The visitation path counters.
+     * @throws IOException if an I/O error is thrown by a visitor method.
+     */
+    public static PathCounters copyDirectory(final Path sourceDirectory, final Path targetDirectory,
+            final CopyOption... copyOptions) throws IOException {
+<span class="fc" id="L170">        return visitFileTree(</span>
+<span class="fc" id="L171">                new CopyDirectoryVisitor(Counters.longPathCounters(), sourceDirectory, targetDirectory, copyOptions),</span>
+<span class="fc" id="L172">                sourceDirectory).getPathCounters();</span>
+    }
+
+    /**
+     * Copies a URL to a directory.
+     *
+     * @param sourceFile The source URL.
+     * @param targetFile The target file.
+     * @param copyOptions Specifies how the copying should be done.
+     * @return The target file
+     * @throws IOException if an I/O error occurs
+     * @see Files#copy(InputStream, Path, CopyOption...)
+     */
+    public static Path copyFile(final URL sourceFile, final Path targetFile, final CopyOption... copyOptions)
+            throws IOException {
+<span class="fc" id="L187">        try (final InputStream inputStream = sourceFile.openStream()) {</span>
+<span class="fc" id="L188">            Files.copy(inputStream, targetFile, copyOptions);</span>
+<span class="fc" id="L189">            return targetFile;</span>
+        }
+    }
+
+    /**
+     * Copies a file to a directory.
+     *
+     * @param sourceFile The source file.
+     * @param targetDirectory The target directory.
+     * @param copyOptions Specifies how the copying should be done.
+     * @return The target file
+     * @throws IOException if an I/O error occurs
+     * @see Files#copy(Path, Path, CopyOption...)
+     */
+    public static Path copyFileToDirectory(final Path sourceFile, final Path targetDirectory,
+            final CopyOption... copyOptions) throws IOException {
+<span class="fc" id="L205">        return Files.copy(sourceFile, targetDirectory.resolve(sourceFile.getFileName()), copyOptions);</span>
+    }
+
+    /**
+     * Copies a URL to a directory.
+     *
+     * @param sourceFile The source URL.
+     * @param targetDirectory The target directory.
+     * @param copyOptions Specifies how the copying should be done.
+     * @return The target file
+     * @throws IOException if an I/O error occurs
+     * @see Files#copy(InputStream, Path, CopyOption...)
+     */
+    public static Path copyFileToDirectory(final URL sourceFile, final Path targetDirectory,
+            final CopyOption... copyOptions) throws IOException {
+<span class="nc" id="L220">        try (final InputStream inputStream = sourceFile.openStream()) {</span>
+<span class="nc" id="L221">            Files.copy(inputStream, targetDirectory.resolve(sourceFile.getFile()), copyOptions);</span>
+<span class="nc" id="L222">            return targetDirectory;</span>
+        }
+    }
+
+    /**
+     * Counts aspects of a directory including sub-directories.
+     *
+     * @param directory directory to delete.
+     * @return The visitor used to count the given directory.
+     * @throws IOException if an I/O error is thrown by a visitor method.
+     */
+    public static PathCounters countDirectory(final Path directory) throws IOException {
+<span class="fc" id="L234">        return visitFileTree(new CountingPathVisitor(Counters.longPathCounters()), directory).getPathCounters();</span>
+    }
+
+    /**
+     * Deletes a file or directory. If the path is a directory, delete it and all sub-directories.
+     * &lt;p&gt;
+     * The difference between File.delete() and this method are:
+     * &lt;/p&gt;
+     * &lt;ul&gt;
+     * &lt;li&gt;A directory to delete does not have to be empty.&lt;/li&gt;
+     * &lt;li&gt;You get exceptions when a file or directory cannot be deleted; {@link java.io.File#delete()} returns a
+     * boolean.
+     * &lt;/ul&gt;
+     *
+     * @param path file or directory to delete, must not be {@code null}
+     * @return The visitor used to delete the given directory.
+     * @throws NullPointerException if the directory is {@code null}
+     * @throws IOException if an I/O error is thrown by a visitor method or if an I/O error occurs.
+     */
+    public static PathCounters delete(final Path path) throws IOException {
+<span class="fc bfc" id="L254" title="All 2 branches covered.">        return Files.isDirectory(path) ? deleteDirectory(path) : deleteFile(path);</span>
+    }
+
+    /**
+     * Deletes a directory including sub-directories.
+     *
+     * @param directory directory to delete.
+     * @return The visitor used to delete the given directory.
+     * @throws IOException if an I/O error is thrown by a visitor method.
+     */
+    public static PathCounters deleteDirectory(final Path directory) throws IOException {
+<span class="fc" id="L265">        return visitFileTree(DeletingPathVisitor.withLongCounters(), directory).getPathCounters();</span>
+    }
+
+    /**
+     * Deletes the given file.
+     *
+     * @param file The file to delete.
+     * @return A visitor with path counts set to 1 file, 0 directories, and the size of the deleted file.
+     * @throws IOException if an I/O error occurs.
+     * @throws NotDirectoryException if the file is a directory.
+     */
+    public static PathCounters deleteFile(final Path file) throws IOException {
+<span class="fc bfc" id="L277" title="All 2 branches covered.">        if (Files.isDirectory(file)) {</span>
+<span class="fc" id="L278">            throw new NotDirectoryException(file.toString());</span>
+        }
+<span class="fc" id="L280">        final PathCounters pathCounts = Counters.longPathCounters();</span>
+<span class="fc bfc" id="L281" title="All 2 branches covered.">        final long size = Files.exists(file) ? Files.size(file) : 0;</span>
+<span class="fc bfc" id="L282" title="All 2 branches covered.">        if (Files.deleteIfExists(file)) {</span>
+<span class="fc" id="L283">            pathCounts.getFileCounter().increment();</span>
+<span class="fc" id="L284">            pathCounts.getByteCounter().add(size);</span>
+        }
+<span class="fc" id="L286">        return pathCounts;</span>
+    }
+
+    /**
+     * Compares the file sets of two Paths to determine if they are equal or not while considering file contents. The
+     * comparison includes all files in all sub-directories.
+     * 
+     * @param path1 The first directory.
+     * @param path2 The second directory.
+     * @return Whether the two directories contain the same files while considering file contents.
+     * @throws IOException if an I/O error is thrown by a visitor method
+     */
+    public static boolean directoryAndFileContentEquals(final Path path1, final Path path2) throws IOException {
+<span class="fc" id="L299">        return directoryAndFileContentEquals(path1, path2, EMPTY_LINK_OPTION_ARRAY, EMPTY_OPEN_OPTION_ARRAY,</span>
+                EMPTY_FILE_VISIT_OPTION_ARRAY);
+    }
+
+    /**
+     * Compares the file sets of two Paths to determine if they are equal or not while considering file contents. The
+     * comparison includes all files in all sub-directories.
+     * 
+     * @param path1 The first directory.
+     * @param path2 The second directory.
+     * @param linkOptions options to follow links.
+     * @param openOptions options to open files.
+     * @param fileVisitOption options to configure traversal.
+     * @return Whether the two directories contain the same files while considering file contents.
+     * @throws IOException if an I/O error is thrown by a visitor method
+     */
+    public static boolean directoryAndFileContentEquals(final Path path1, final Path path2,
+            final LinkOption[] linkOptions, final OpenOption[] openOptions, final FileVisitOption[] fileVisitOption)
+            throws IOException {
+        // First walk both file trees and gather normalized paths.
+<span class="fc bfc" id="L319" title="All 4 branches covered.">        if (path1 == null &amp;&amp; path2 == null) {</span>
+<span class="fc" id="L320">            return true;</span>
+        }
+<span class="fc bfc" id="L322" title="All 6 branches covered.">        if (path1 == null ^ path2 == null) {</span>
+<span class="fc" id="L323">            return false;</span>
+        }
+<span class="pc bpc" id="L325" title="1 of 4 branches missed.">        if (!Files.exists(path1) &amp;&amp; !Files.exists(path2)) {</span>
+<span class="fc" id="L326">            return true;</span>
+        }
+<span class="fc" id="L328">        final RelativeSortedPaths relativeSortedPaths = new RelativeSortedPaths(path1, path2, Integer.MAX_VALUE,</span>
+                linkOptions, fileVisitOption);
+        // If the normalized path names and counts are not the same, no need to compare contents.
+<span class="fc bfc" id="L331" title="All 2 branches covered.">        if (!relativeSortedPaths.equals) {</span>
+<span class="fc" id="L332">            return false;</span>
+        }
+        // Both visitors contain the same normalized paths, we can compare file contents.
+<span class="fc" id="L335">        final List&lt;Path&gt; fileList1 = relativeSortedPaths.relativeFileList1;</span>
+<span class="fc" id="L336">        final List&lt;Path&gt; fileList2 = relativeSortedPaths.relativeFileList2;</span>
+<span class="fc bfc" id="L337" title="All 2 branches covered.">        for (Path path : fileList1) {</span>
+<span class="fc" id="L338">            final int binarySearch = Collections.binarySearch(fileList2, path);</span>
+<span class="pc bpc" id="L339" title="1 of 2 branches missed.">            if (binarySearch &gt; -1) {</span>
+<span class="pc bpc" id="L340" title="1 of 2 branches missed.">                if (!fileContentEquals(path1.resolve(path), path2.resolve(path), linkOptions, openOptions)) {</span>
+<span class="nc" id="L341">                    return false;</span>
+                }
+            } else {
+<span class="nc" id="L344">                throw new IllegalStateException(String.format(&quot;Unexpected mismatch.&quot;));</span>
+            }
+<span class="fc" id="L346">        }</span>
+<span class="fc" id="L347">        return true;</span>
+    }
+
+    /**
+     * Compares the file sets of two Paths to determine if they are equal or not without considering file contents. The
+     * comparison includes all files in all sub-directories.
+     * 
+     * @param path1 The first directory.
+     * @param path2 The second directory.
+     * @return Whether the two directories contain the same files without considering file contents.
+     * @throws IOException if an I/O error is thrown by a visitor method
+     */
+    public static boolean directoryContentEquals(final Path path1, final Path path2) throws IOException {
+<span class="fc" id="L360">        return directoryContentEquals(path1, path2, Integer.MAX_VALUE, EMPTY_LINK_OPTION_ARRAY,</span>
+                EMPTY_FILE_VISIT_OPTION_ARRAY);
+    }
+
+    /**
+     * Compares the file sets of two Paths to determine if they are equal or not without considering file contents. The
+     * comparison includes all files in all sub-directories.
+     * 
+     * @param path1 The first directory.
+     * @param path2 The second directory.
+     * @param maxDepth See {@link Files#walkFileTree(Path,Set,int,FileVisitor)}.
+     * @param linkOptions options to follow links.
+     * @param fileVisitOptions options to configure the traversal
+     * @return Whether the two directories contain the same files without considering file contents.
+     * @throws IOException if an I/O error is thrown by a visitor method
+     */
+    public static boolean directoryContentEquals(final Path path1, final Path path2, final int maxDepth,
+            LinkOption[] linkOptions, FileVisitOption[] fileVisitOptions) throws IOException {
+<span class="fc" id="L378">        return new RelativeSortedPaths(path1, path2, maxDepth, linkOptions, fileVisitOptions).equals;</span>
+    }
+
+    /**
+     * Compares the file contents of two Paths to determine if they are equal or not.
+     * &lt;p&gt;
+     * File content is accessed through {@link Files#newInputStream(Path,OpenOption...)}.
+     * &lt;/p&gt;
+     *
+     * @param path1 the first stream.
+     * @param path2 the second stream.
+     * @return true if the content of the streams are equal or they both don't exist, false otherwise.
+     * @throws NullPointerException if either input is null.
+     * @throws IOException if an I/O error occurs.
+     * @see org.apache.commons.io.FileUtils#contentEquals(java.io.File, java.io.File)
+     */
+    public static boolean fileContentEquals(final Path path1, final Path path2) throws IOException {
+<span class="fc" id="L395">        return fileContentEquals(path1, path2, EMPTY_LINK_OPTION_ARRAY, EMPTY_OPEN_OPTION_ARRAY);</span>
+    }
+
+    /**
+     * Compares the file contents of two Paths to determine if they are equal or not.
+     * &lt;p&gt;
+     * File content is accessed through {@link Files#newInputStream(Path,OpenOption...)}.
+     * &lt;/p&gt;
+     *
+     * @param path1 the first stream.
+     * @param path2 the second stream.
+     * @param linkOptions options specifying how files are followed.
+     * @param openOptions options specifying how files are opened.
+     * @return true if the content of the streams are equal or they both don't exist, false otherwise.
+     * @throws NullPointerException if either input is null.
+     * @throws IOException if an I/O error occurs.
+     * @see org.apache.commons.io.FileUtils#contentEquals(java.io.File, java.io.File)
+     */
+    public static boolean fileContentEquals(final Path path1, final Path path2, final LinkOption[] linkOptions,
+            final OpenOption[] openOptions) throws IOException {
+<span class="fc bfc" id="L415" title="All 4 branches covered.">        if (path1 == null &amp;&amp; path2 == null) {</span>
+<span class="fc" id="L416">            return true;</span>
+        }
+<span class="fc bfc" id="L418" title="All 6 branches covered.">        if (path1 == null ^ path2 == null) {</span>
+<span class="fc" id="L419">            return false;</span>
+        }
+<span class="fc" id="L421">        final Path nPath1 = path1.normalize();</span>
+<span class="fc" id="L422">        final Path nPath2 = path2.normalize();</span>
+<span class="fc" id="L423">        final boolean path1Exists = Files.exists(nPath1, linkOptions);</span>
+<span class="pc bpc" id="L424" title="1 of 2 branches missed.">        if (path1Exists != Files.exists(nPath2, linkOptions)) {</span>
+<span class="nc" id="L425">            return false;</span>
+        }
+<span class="fc bfc" id="L427" title="All 2 branches covered.">        if (!path1Exists) {</span>
+            // Two not existing files are equal?
+            // Same as FileUtils
+<span class="fc" id="L430">            return true;</span>
+        }
+<span class="fc bfc" id="L432" title="All 2 branches covered.">        if (Files.isDirectory(nPath1, linkOptions)) {</span>
+            // don't compare directory contents.
+<span class="fc" id="L434">            throw new IOException(&quot;Can't compare directories, only files: &quot; + nPath1);</span>
+        }
+<span class="pc bpc" id="L436" title="1 of 2 branches missed.">        if (Files.isDirectory(nPath2, linkOptions)) {</span>
+            // don't compare directory contents.
+<span class="nc" id="L438">            throw new IOException(&quot;Can't compare directories, only files: &quot; + nPath2);</span>
+        }
+<span class="fc bfc" id="L440" title="All 2 branches covered.">        if (Files.size(nPath1) != Files.size(nPath2)) {</span>
+            // lengths differ, cannot be equal
+<span class="fc" id="L442">            return false;</span>
+        }
+<span class="fc bfc" id="L444" title="All 2 branches covered.">        if (path1.equals(path2)) {</span>
+            // same file
+<span class="fc" id="L446">            return true;</span>
+        }
+<span class="fc" id="L448">        try (final InputStream inputStream1 = Files.newInputStream(nPath1, openOptions);</span>
+<span class="fc" id="L449">                final InputStream inputStream2 = Files.newInputStream(nPath2, openOptions)) {</span>
+<span class="fc" id="L450">            return IOUtils.contentEquals(inputStream1, inputStream2);</span>
+        }
+    }
+
+    /**
+     * Returns whether the given file or directory is empty.
+     *
+     * @param path the the given file or directory to query.
+     * @return whether the given file or directory is empty.
+     * @throws IOException if an I/O error occurs
+     */
+    public static boolean isEmpty(final Path path) throws IOException {
+<span class="fc bfc" id="L462" title="All 2 branches covered.">        return Files.isDirectory(path) ? isEmptyDirectory(path) : isEmptyFile(path);</span>
+    }
+
+    /**
+     * Returns whether the directory is empty.
+     *
+     * @param directory the the given directory to query.
+     * @return whether the given directory is empty.
+     * @throws IOException if an I/O error occurs
+     */
+    public static boolean isEmptyDirectory(final Path directory) throws IOException {
+<span class="fc" id="L473">        try (DirectoryStream&lt;Path&gt; directoryStream = Files.newDirectoryStream(directory)) {</span>
+<span class="fc bfc" id="L474" title="All 2 branches covered.">            if (directoryStream.iterator().hasNext()) {</span>
+<span class="fc" id="L475">                return false;</span>
+            }
+        }
+<span class="fc" id="L478">        return true;</span>
+    }
+
+    /**
+     * Returns whether the given file is empty.
+     *
+     * @param file the the given file to query.
+     * @return whether the given file is empty.
+     * @throws IOException if an I/O error occurs
+     */
+    public static boolean isEmptyFile(final Path file) throws IOException {
+<span class="fc bfc" id="L489" title="All 2 branches covered.">        return Files.size(file) &lt;= 0;</span>
+    }
+
+    /**
+     * Relativizes all files in the given {@code collection} against a {@code parent}.
+     * 
+     * @param collection The collection of paths to relativize.
+     * @param parent relativizes against this parent path.
+     * @param sort Whether to sort the result.
+     * @param comparator How to sort.
+     * @return A collection of relativized paths, optionally sorted.
+     */
+    static List&lt;Path&gt; relativize(Collection&lt;Path&gt; collection, Path parent, boolean sort,
+            Comparator&lt;? super Path&gt; comparator) {
+<span class="fc" id="L503">        Stream&lt;Path&gt; stream = collection.stream().map(e -&gt; parent.relativize(e));</span>
+<span class="pc bpc" id="L504" title="1 of 2 branches missed.">        if (sort) {</span>
+<span class="pc bpc" id="L505" title="1 of 2 branches missed.">            stream = comparator == null ? stream.sorted() : stream.sorted(comparator);</span>
+        }
+<span class="fc" id="L507">        return stream.collect(Collectors.toList());</span>
+    }
+
+    /**
+     * Converts an array of {@link FileVisitOption} to a {@link Set}.
+     * 
+     * @param fileVisitOptions input array.
+     * @return a new Set.
+     */
+    static Set&lt;FileVisitOption&gt; toFileVisitOptionSet(final FileVisitOption... fileVisitOptions) {
+<span class="pc bpc" id="L517" title="1 of 2 branches missed.">        return fileVisitOptions == null ? EnumSet.noneOf(FileVisitOption.class)</span>
+<span class="fc" id="L518">                : Arrays.stream(fileVisitOptions).collect(Collectors.toSet());</span>
+    }
+
+    /**
+     * Performs {@link Files#walkFileTree(Path,FileVisitor)} and returns the given visitor.
+     *
+     * Note that {@link Files#walkFileTree(Path,FileVisitor)} returns the given path.
+     *
+     * @param visitor See {@link Files#walkFileTree(Path,FileVisitor)}.
+     * @param directory See {@link Files#walkFileTree(Path,FileVisitor)}.
+     * @param &lt;T&gt; See {@link Files#walkFileTree(Path,FileVisitor)}.
+     * @return the given visitor.
+     *
+     * @throws IOException if an I/O error is thrown by a visitor method
+     */
+    public static &lt;T extends FileVisitor&lt;? super Path&gt;&gt; T visitFileTree(final T visitor, final Path directory)
+            throws IOException {
+<span class="fc" id="L535">        Files.walkFileTree(directory, visitor);</span>
+<span class="fc" id="L536">        return visitor;</span>
+    }
+
+    /**
+     * Performs {@link Files#walkFileTree(Path,FileVisitor)} and returns the given visitor.
+     *
+     * Note that {@link Files#walkFileTree(Path,FileVisitor)} returns the given path.
+     *
+     * @param start See {@link Files#walkFileTree(Path,Set,int,FileVisitor)}.
+     * @param options See {@link Files#walkFileTree(Path,Set,int,FileVisitor)}.
+     * @param maxDepth See {@link Files#walkFileTree(Path,Set,int,FileVisitor)}.
+     * @param visitor See {@link Files#walkFileTree(Path,Set,int,FileVisitor)}.
+     * @param &lt;T&gt; See {@link Files#walkFileTree(Path,Set,int,FileVisitor)}.
+     * @return the given visitor.
+     *
+     * @throws IOException if an I/O error is thrown by a visitor method
+     */
+    public static &lt;T extends FileVisitor&lt;? super Path&gt;&gt; T visitFileTree(T visitor, Path start,
+            Set&lt;FileVisitOption&gt; options, int maxDepth) throws IOException {
+<span class="fc" id="L555">        Files.walkFileTree(start, options, maxDepth, visitor);</span>
+<span class="fc" id="L556">        return visitor;</span>
+    }
+
+    /**
+     * Performs {@link Files#walkFileTree(Path,FileVisitor)} and returns the given visitor.
+     *
+     * Note that {@link Files#walkFileTree(Path,FileVisitor)} returns the given path.
+     *
+     * @param visitor See {@link Files#walkFileTree(Path,FileVisitor)}.
+     * @param first See {@link Paths#get(String,String[])}.
+     * @param more See {@link Paths#get(String,String[])}.
+     * @param &lt;T&gt; See {@link Files#walkFileTree(Path,FileVisitor)}.
+     * @return the given visitor.
+     *
+     * @throws IOException if an I/O error is thrown by a visitor method
+     */
+    public static &lt;T extends FileVisitor&lt;? super Path&gt;&gt; T visitFileTree(final T visitor, final String first,
+            final String... more) throws IOException {
+<span class="fc" id="L574">        return visitFileTree(visitor, Paths.get(first, more));</span>
+    }
+
+    /**
+     * Performs {@link Files#walkFileTree(Path,FileVisitor)} and returns the given visitor.
+     *
+     * Note that {@link Files#walkFileTree(Path,FileVisitor)} returns the given path.
+     *
+     * @param visitor See {@link Files#walkFileTree(Path,FileVisitor)}.
+     * @param uri See {@link Paths#get(URI)}.
+     * @param &lt;T&gt; See {@link Files#walkFileTree(Path,FileVisitor)}.
+     * @return the given visitor.
+     *
+     * @throws IOException if an I/O error is thrown by a visitor method
+     */
+    public static &lt;T extends FileVisitor&lt;? super Path&gt;&gt; T visitFileTree(final T visitor, final URI uri)
+            throws IOException {
+<span class="nc" id="L591">        return visitFileTree(visitor, Paths.get(uri));</span>
+    }
+
+    /**
+     * Does allow to instantiate.
+     */
+    private PathUtils() {
+        // do not instantiate.
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

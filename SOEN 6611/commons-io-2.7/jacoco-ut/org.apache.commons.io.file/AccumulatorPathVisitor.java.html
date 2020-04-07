@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="iso-8859-1"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AccumulatorPathVisitor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons IO</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.io.file</a> &gt; <span class="el_source">AccumulatorPathVisitor.java</span></div><h1>AccumulatorPathVisitor.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.io.file;
+
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+
+import org.apache.commons.io.file.Counters.PathCounters;
+
+/**
+ * Accumulates normalized paths during visitation.
+ * &lt;p&gt;
+ * Use with care on large file trees as each visited Path element is remembered.
+ * &lt;/p&gt;
+ *
+ * @since 2.7
+ */
+public class AccumulatorPathVisitor extends CountingPathVisitor {
+
+    /**
+     * Creates a new instance configured with a BigInteger {@link PathCounters}.
+     *
+     * @return a new instance configured with a BigInteger {@link PathCounters}.
+     */
+    public static AccumulatorPathVisitor withBigIntegerCounters() {
+<span class="nc" id="L48">        return new AccumulatorPathVisitor(Counters.bigIntegerPathCounters());</span>
+    }
+
+    /**
+     * Creates a new instance configured with a long {@link PathCounters}.
+     *
+     * @return a new instance configured with a long {@link PathCounters}.
+     */
+    public static AccumulatorPathVisitor withLongCounters() {
+<span class="fc" id="L57">        return new AccumulatorPathVisitor(Counters.longPathCounters());</span>
+    }
+
+<span class="fc" id="L60">    private final List&lt;Path&gt; dirList = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L62">    private final List&lt;Path&gt; fileList = new ArrayList&lt;&gt;();</span>
+
+    /**
+     * Constructs a new instance.
+     *
+     * @param pathCounter How to count path visits.
+     */
+    public AccumulatorPathVisitor(PathCounters pathCounter) {
+<span class="fc" id="L70">        super(pathCounter);</span>
+<span class="fc" id="L71">    }</span>
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        if (this == obj) {</span>
+<span class="nc" id="L76">            return true;</span>
+        }
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        if (!super.equals(obj)) {</span>
+<span class="nc" id="L79">            return false;</span>
+        }
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (!(obj instanceof AccumulatorPathVisitor)) {</span>
+<span class="nc" id="L82">            return false;</span>
+        }
+<span class="nc" id="L84">        AccumulatorPathVisitor other = (AccumulatorPathVisitor) obj;</span>
+<span class="nc bnc" id="L85" title="All 4 branches missed.">        return Objects.equals(dirList, other.dirList) &amp;&amp; Objects.equals(fileList, other.fileList);</span>
+    }
+
+    /**
+     * Gets the list of visited directories.
+     * 
+     * @return the list of visited directories.
+     */
+    public List&lt;Path&gt; getDirList() {
+<span class="fc" id="L94">        return dirList;</span>
+    }
+
+    /**
+     * Gets the list of visited files.
+     * 
+     * @return the list of visited files.
+     */
+    public List&lt;Path&gt; getFileList() {
+<span class="fc" id="L103">        return fileList;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L108">        final int prime = 31;</span>
+<span class="nc" id="L109">        int result = super.hashCode();</span>
+<span class="nc" id="L110">        result = prime * result + Objects.hash(dirList, fileList);</span>
+<span class="nc" id="L111">        return result;</span>
+    }
+
+    /**
+     * Relativizes each directory path with {@link Path#relativize(Path)} against the given {@code parent}, optionally
+     * sorting the result.
+     * 
+     * @param parent A parent path
+     * @param sort Whether to sort
+     * @param comparator How to sort, null uses default sorting.
+     * @return A new list
+     */
+    public List&lt;Path&gt; relativizeDirectories(final Path parent, boolean sort, Comparator&lt;? super Path&gt; comparator) {
+<span class="fc" id="L124">        return PathUtils.relativize(getDirList(), parent, sort, comparator);</span>
+    }
+
+    /**
+     * Relativizes each file path with {@link Path#relativize(Path)} against the given {@code parent}, optionally
+     * sorting the result.
+     * 
+     * @param parent A parent path
+     * @param sort Whether to sort
+     * @param comparator How to sort, null uses default sorting.
+     * @return A new list
+     */
+    public List&lt;Path&gt; relativizeFiles(final Path parent, boolean sort, Comparator&lt;? super Path&gt; comparator) {
+<span class="fc" id="L137">        return PathUtils.relativize(getFileList(), parent, sort, comparator);</span>
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        ((Files.isDirectory(file)) ? dirList : fileList).add(file.normalize());</span>
+<span class="fc" id="L143">        return super.visitFile(file, attributes);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

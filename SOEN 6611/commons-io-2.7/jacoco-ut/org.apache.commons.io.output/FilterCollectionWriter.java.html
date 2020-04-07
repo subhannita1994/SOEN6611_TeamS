@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="iso-8859-1"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FilterCollectionWriter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons IO</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.io.output</a> &gt; <span class="el_source">FilterCollectionWriter.java</span></div><h1>FilterCollectionWriter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.io.output;
+
+import java.io.FilterWriter;
+import java.io.IOException;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
+import org.apache.commons.io.IOExceptionList;
+import org.apache.commons.io.IOIndexedException;
+
+/**
+ * Abstract class for writing filtered character streams to a {@link Collection} of writers. This is in contrast to
+ * {@link FilterWriter} which is backed by a single {@link Writer}.
+ * &lt;p&gt;
+ * This abstract class provides default methods that pass all requests to the contained writers. Subclasses should
+ * likely override some of these methods.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * The class {@link Writer} defines method signatures with {@code throws} {@link IOException}, which in this class are
+ * actually {@link IOExceptionList} containing a list of {@link IOIndexedException}.
+ * &lt;/p&gt;
+ *
+ * @since 2.7
+ */
+public class FilterCollectionWriter extends Writer {
+
+    /**
+     * Empty and immutable collection of writers.
+     */
+<span class="fc" id="L51">    protected final Collection&lt;Writer&gt; EMPTY_WRITERS = Collections.emptyList();</span>
+
+    /**
+     * The underlying writers.
+     */
+    protected final Collection&lt;Writer&gt; writers;
+
+    /**
+     * Creates a new filtered collection writer.
+     *
+     * @param writers Writers to provide the underlying targets.
+     */
+<span class="fc" id="L63">    protected FilterCollectionWriter(final Collection&lt;Writer&gt; writers) {</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        this.writers = writers == null ? EMPTY_WRITERS : writers;</span>
+<span class="fc" id="L65">    }</span>
+
+    /**
+     * Creates a new filtered collection writer.
+     *
+     * @param writers Writers to provide the underlying targets.
+     */
+<span class="fc" id="L72">    protected FilterCollectionWriter(final Writer... writers) {</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        this.writers = writers == null ? EMPTY_WRITERS : Arrays.asList(writers);</span>
+<span class="fc" id="L74">    }</span>
+
+    @Override
+    public Writer append(final char c) throws IOException {
+<span class="fc" id="L78">        final List&lt;Exception&gt; causeList = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L79">        int i = 0;</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        for (final Writer w : writers) {</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">            if (w != null) {</span>
+                try {
+<span class="fc" id="L83">                    w.append(c);</span>
+<span class="fc" id="L84">                } catch (final IOException e) {</span>
+<span class="fc" id="L85">                    causeList.add(new IOIndexedException(i, e));</span>
+<span class="fc" id="L86">                }</span>
+            }
+<span class="fc" id="L88">            i++;</span>
+<span class="fc" id="L89">        }</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        if (!causeList.isEmpty()) {</span>
+<span class="fc" id="L91">            throw new IOExceptionList(causeList);</span>
+        }
+<span class="fc" id="L93">        return this;</span>
+    }
+
+    @Override
+    public Writer append(final CharSequence csq) throws IOException {
+<span class="fc" id="L98">        final List&lt;Exception&gt; causeList = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L99">        int i = 0;</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        for (final Writer w : writers) {</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">            if (w != null) {</span>
+                try {
+<span class="fc" id="L103">                    w.append(csq);</span>
+<span class="fc" id="L104">                } catch (final IOException e) {</span>
+<span class="fc" id="L105">                    causeList.add(new IOIndexedException(i, e));</span>
+<span class="fc" id="L106">                }</span>
+            }
+<span class="fc" id="L108">            i++;</span>
+<span class="fc" id="L109">        }</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        if (!causeList.isEmpty()) {</span>
+<span class="fc" id="L111">            throw new IOExceptionList(causeList);</span>
+        }
+<span class="fc" id="L113">        return this;</span>
+    }
+
+    @Override
+    public Writer append(final CharSequence csq, final int start, final int end) throws IOException {
+
+<span class="fc" id="L119">        final List&lt;Exception&gt; causeList = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L120">        int i = 0;</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        for (final Writer w : writers) {</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">            if (w != null) {</span>
+                try {
+<span class="fc" id="L124">                    w.append(csq, start, end);</span>
+<span class="fc" id="L125">                } catch (final IOException e) {</span>
+<span class="fc" id="L126">                    causeList.add(new IOIndexedException(i, e));</span>
+<span class="fc" id="L127">                }</span>
+            }
+<span class="fc" id="L129">            i++;</span>
+<span class="fc" id="L130">        }</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">        if (!causeList.isEmpty()) {</span>
+<span class="fc" id="L132">            throw new IOExceptionList(causeList);</span>
+        }
+<span class="fc" id="L134">        return this;</span>
+    }
+
+    @Override
+    public void close() throws IOException {
+<span class="fc" id="L139">        final List&lt;Exception&gt; causeList = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L140">        int i = 0;</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">        for (final Writer w : writers) {</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">            if (w != null) {</span>
+                try {
+<span class="fc" id="L144">                    w.close();</span>
+<span class="fc" id="L145">                } catch (final IOException e) {</span>
+<span class="fc" id="L146">                    causeList.add(new IOIndexedException(i, e));</span>
+<span class="fc" id="L147">                }</span>
+            }
+<span class="fc" id="L149">            i++;</span>
+<span class="fc" id="L150">        }</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        if (!causeList.isEmpty()) {</span>
+<span class="fc" id="L152">            throw new IOExceptionList(causeList);</span>
+        }
+
+<span class="fc" id="L155">    }</span>
+
+    /**
+     * Flushes the stream.
+     *
+     * @exception IOException If an I/O error occurs
+     */
+    @Override
+    public void flush() throws IOException {
+<span class="fc" id="L164">        final List&lt;Exception&gt; causeList = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L165">        int i = 0;</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">        for (final Writer w : writers) {</span>
+<span class="fc bfc" id="L167" title="All 2 branches covered.">            if (w != null) {</span>
+                try {
+<span class="fc" id="L169">                    w.flush();</span>
+<span class="fc" id="L170">                } catch (final IOException e) {</span>
+<span class="fc" id="L171">                    causeList.add(new IOIndexedException(i, e));</span>
+<span class="fc" id="L172">                }</span>
+            }
+<span class="fc" id="L174">            i++;</span>
+<span class="fc" id="L175">        }</span>
+<span class="fc bfc" id="L176" title="All 2 branches covered.">        if (!causeList.isEmpty()) {</span>
+<span class="fc" id="L177">            throw new IOExceptionList(causeList);</span>
+        }
+
+<span class="fc" id="L180">    }</span>
+
+    /**
+     * Writes a portion of an array of characters.
+     *
+     * @param cbuf Buffer of characters to be written
+     * @param off  Offset from which to start reading characters
+     * @param len  Number of characters to be written
+     *
+     * @exception IOException If an I/O error occurs
+     */
+    @Override
+    public void write(final char cbuf[], final int off, final int len) throws IOException {
+<span class="fc" id="L193">        final List&lt;Exception&gt; causeList = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L194">        int i = 0;</span>
+<span class="fc bfc" id="L195" title="All 2 branches covered.">        for (final Writer w : writers) {</span>
+<span class="fc bfc" id="L196" title="All 2 branches covered.">            if (w != null) {</span>
+                try {
+<span class="fc" id="L198">                    w.write(cbuf, off, len);</span>
+<span class="fc" id="L199">                } catch (final IOException e) {</span>
+<span class="fc" id="L200">                    causeList.add(new IOIndexedException(i, e));</span>
+<span class="fc" id="L201">                }</span>
+            }
+<span class="fc" id="L203">            i++;</span>
+<span class="fc" id="L204">        }</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">        if (!causeList.isEmpty()) {</span>
+<span class="fc" id="L206">            throw new IOExceptionList(causeList);</span>
+        }
+<span class="fc" id="L208">    }</span>
+
+    @Override
+    public void write(final char[] cbuf) throws IOException {
+<span class="fc" id="L212">        final List&lt;Exception&gt; causeList = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L213">        int i = 0;</span>
+<span class="fc bfc" id="L214" title="All 2 branches covered.">        for (final Writer w : writers) {</span>
+<span class="fc bfc" id="L215" title="All 2 branches covered.">            if (w != null) {</span>
+                try {
+<span class="fc" id="L217">                    w.write(cbuf);</span>
+<span class="fc" id="L218">                } catch (final IOException e) {</span>
+<span class="fc" id="L219">                    causeList.add(new IOIndexedException(i, e));</span>
+<span class="fc" id="L220">                }</span>
+            }
+<span class="fc" id="L222">            i++;</span>
+<span class="fc" id="L223">        }</span>
+<span class="fc bfc" id="L224" title="All 2 branches covered.">        if (!causeList.isEmpty()) {</span>
+<span class="fc" id="L225">            throw new IOExceptionList(causeList);</span>
+        }
+<span class="fc" id="L227">    }</span>
+
+    /**
+     * Writes a single character.
+     *
+     * @exception IOException If an I/O error occurs
+     */
+    @Override
+    public void write(final int c) throws IOException {
+<span class="fc" id="L236">        final List&lt;Exception&gt; causeList = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L237">        int i = 0;</span>
+<span class="fc bfc" id="L238" title="All 2 branches covered.">        for (final Writer w : writers) {</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">            if (w != null) {</span>
+                try {
+<span class="fc" id="L241">                    w.write(c);</span>
+<span class="fc" id="L242">                } catch (final IOException e) {</span>
+<span class="fc" id="L243">                    causeList.add(new IOIndexedException(i, e));</span>
+<span class="fc" id="L244">                }</span>
+            }
+<span class="fc" id="L246">            i++;</span>
+<span class="fc" id="L247">        }</span>
+<span class="fc bfc" id="L248" title="All 2 branches covered.">        if (!causeList.isEmpty()) {</span>
+<span class="fc" id="L249">            throw new IOExceptionList(causeList);</span>
+        }
+<span class="fc" id="L251">    }</span>
+
+    @Override
+    public void write(final String str) throws IOException {
+<span class="fc" id="L255">        final List&lt;Exception&gt; causeList = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L256">        int i = 0;</span>
+<span class="fc bfc" id="L257" title="All 2 branches covered.">        for (final Writer w : writers) {</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">            if (w != null) {</span>
+                try {
+<span class="fc" id="L260">                    w.write(str);</span>
+<span class="fc" id="L261">                } catch (final IOException e) {</span>
+<span class="fc" id="L262">                    causeList.add(new IOIndexedException(i, e));</span>
+<span class="fc" id="L263">                }</span>
+            }
+<span class="fc" id="L265">            i++;</span>
+<span class="fc" id="L266">        }</span>
+<span class="pc bpc" id="L267" title="1 of 2 branches missed.">        if (!causeList.isEmpty()) {</span>
+<span class="fc" id="L268">            throw new IOExceptionList(causeList);</span>
+        }
+
+<span class="nc" id="L271">    }</span>
+
+    /**
+     * Writes a portion of a string.
+     *
+     * @param str String to be written
+     * @param off Offset from which to start reading characters
+     * @param len Number of characters to be written
+     *
+     * @exception IOException If an I/O error occurs
+     */
+    @Override
+    public void write(final String str, final int off, final int len) throws IOException {
+<span class="fc" id="L284">        final List&lt;Exception&gt; causeList = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L285">        int i = 0;</span>
+<span class="fc bfc" id="L286" title="All 2 branches covered.">        for (final Writer w : writers) {</span>
+<span class="fc bfc" id="L287" title="All 2 branches covered.">            if (w != null) {</span>
+                try {
+<span class="fc" id="L289">                    w.write(str, off, len);</span>
+<span class="fc" id="L290">                } catch (final IOException e) {</span>
+<span class="fc" id="L291">                    causeList.add(new IOIndexedException(i, e));</span>
+<span class="fc" id="L292">                }</span>
+            }
+<span class="fc" id="L294">            i++;</span>
+<span class="fc" id="L295">        }</span>
+<span class="pc bpc" id="L296" title="1 of 2 branches missed.">        if (!causeList.isEmpty()) {</span>
+<span class="fc" id="L297">            throw new IOExceptionList(causeList);</span>
+        }
+
+<span class="nc" id="L300">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CountingBloomFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.bloomfilter</a> &gt; <span class="el_source">CountingBloomFilter.java</span></div><h1>CountingBloomFilter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.bloomfilter;
+
+import java.util.AbstractMap;
+import java.util.BitSet;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.PrimitiveIterator.OfInt;
+import java.util.function.Consumer;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.stream.Stream;
+
+import org.apache.commons.collections4.bloomfilter.hasher.Hasher;
+import org.apache.commons.collections4.bloomfilter.hasher.Shape;
+import org.apache.commons.collections4.bloomfilter.hasher.StaticHasher;
+
+/**
+ * A counting Bloom filter.
+ * This Bloom filter maintains a count of the number of times a bit has been
+ * turned on. This allows for removal of Bloom filters from the filter.
+ * &lt;p&gt;
+ * This implementation uses a map to track enabled bit counts
+ * &lt;/p&gt;
+ *
+ * @since 4.5
+ */
+public class CountingBloomFilter extends AbstractBloomFilter {
+
+    /**
+     * The count of entries. Each enabled bit is a key with the count for that bit
+     * being the value.  Entries with a value of zero are removed.
+     */
+    private final TreeMap&lt;Integer, Integer&gt; counts;
+
+    /**
+     * Constructs a counting Bloom filter from a hasher and a shape.
+     *
+     * @param hasher The hasher to build the filter from.
+     * @param shape  The shape of the resulting filter.
+     */
+    public CountingBloomFilter(final Hasher hasher, final Shape shape) {
+<span class="fc" id="L58">        super(shape);</span>
+<span class="fc" id="L59">        verifyHasher(hasher);</span>
+<span class="fc" id="L60">        counts = new TreeMap&lt;&gt;();</span>
+        // Eliminate duplicates and only set each bit once.
+<span class="fc" id="L62">        hasher.getBits(shape).forEachRemaining((Consumer&lt;Integer&gt;) idx -&gt; {</span>
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">            if (!counts.containsKey(idx)) {</span>
+<span class="fc" id="L64">                counts.put(idx, 1);</span>
+            }
+<span class="fc" id="L66">        });</span>
+<span class="fc" id="L67">    }</span>
+
+    /**
+     * Constructs a counting Bloom filter with the provided counts and shape
+     *
+     * @param counts A map of data counts.
+     * @param shape  The shape of the resulting filter.
+     */
+    public CountingBloomFilter(final Map&lt;Integer, Integer&gt; counts, final Shape shape) {
+<span class="fc" id="L76">        this(shape);</span>
+<span class="fc" id="L77">        counts.entrySet().stream().forEach(e -&gt; {</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">            if (e.getKey() &gt;= shape.getNumberOfBits()) {</span>
+<span class="fc" id="L79">                throw new IllegalArgumentException(</span>
+<span class="fc" id="L80">                    &quot;dataMap has an item with an index larger than &quot; + (shape.getNumberOfBits() - 1));</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">            } else if (e.getKey() &lt; 0) {</span>
+<span class="fc" id="L82">                throw new IllegalArgumentException(&quot;dataMap has an item with an index less than 0&quot;);</span>
+            }
+<span class="fc bfc" id="L84" title="All 2 branches covered.">            if (e.getValue() &lt; 0) {</span>
+<span class="fc" id="L85">                throw new IllegalArgumentException(&quot;dataMap has an item with an value less than 0&quot;);</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">            } else if (e.getValue() &gt; 0) {</span>
+<span class="fc" id="L87">                this.counts.put(e.getKey(), e.getValue());</span>
+            }
+<span class="fc" id="L89">        });</span>
+<span class="fc" id="L90">    }</span>
+
+    /**
+     * Constructs an empty Counting filter with the specified shape.
+     *
+     * @param shape  The shape of the resulting filter.
+     */
+    public CountingBloomFilter(final Shape shape) {
+<span class="fc" id="L98">        super(shape);</span>
+<span class="fc" id="L99">        this.counts = new TreeMap&lt;&gt;();</span>
+<span class="fc" id="L100">    }</span>
+
+    @Override
+    public int andCardinality(final BloomFilter other) {
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (other instanceof CountingBloomFilter) {</span>
+<span class="fc" id="L105">            final Set&lt;Integer&gt; result = new HashSet&lt;&gt;(counts.keySet());</span>
+<span class="fc" id="L106">            result.retainAll(((CountingBloomFilter) other).counts.keySet());</span>
+<span class="fc" id="L107">            return result.size();</span>
+        }
+<span class="nc" id="L109">        return super.andCardinality(other);</span>
+    }
+
+    @Override
+    public int cardinality() {
+<span class="fc" id="L114">        return counts.size();</span>
+    }
+
+    @Override
+    public boolean contains(final Hasher hasher) {
+<span class="fc" id="L119">        verifyHasher(hasher);</span>
+<span class="fc" id="L120">        final OfInt iter = hasher.getBits(getShape());</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        while (iter.hasNext()) {</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">            if (counts.get(iter.nextInt()) == null) {</span>
+<span class="fc" id="L123">                return false;</span>
+            }
+        }
+<span class="fc" id="L126">        return true;</span>
+    }
+
+    @Override
+    public long[] getBits() {
+<span class="fc" id="L131">        final BitSet bs = new BitSet();</span>
+<span class="fc" id="L132">        counts.keySet().stream().forEach(bs::set);</span>
+<span class="fc" id="L133">        return bs.toLongArray();</span>
+    }
+
+    /**
+     * Gets the count for each enabled bit.
+     *
+     * @return an immutable map of enabled bits (key) to counts for that bit
+     *         (value).
+     */
+    public Stream&lt;Map.Entry&lt;Integer, Integer&gt;&gt; getCounts() {
+<span class="fc" id="L143">        return counts.entrySet().stream()</span>
+<span class="fc" id="L144">            .map(e -&gt; new AbstractMap.SimpleEntry&lt;&gt;(e.getKey(), e.getValue()));</span>
+    }
+
+    @Override
+    public StaticHasher getHasher() {
+<span class="fc" id="L149">        return new StaticHasher(counts.keySet().iterator(), getShape());</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     * &lt;p&gt;
+     * Note: If the other filter is also a CountingBloomFilter the counts are not used.
+     * &lt;/p&gt;
+     *
+     * @throws IllegalStateException If the counts overflow {@link Integer#MAX_VALUE}
+     */
+    @Override
+    public void merge(final BloomFilter other) {
+<span class="fc" id="L162">        verifyShape(other);</span>
+<span class="fc bfc" id="L163" title="All 2 branches covered.">        if (other instanceof CountingBloomFilter) {</span>
+            // Only use the keys and not the counts
+<span class="fc" id="L165">            ((CountingBloomFilter) other).counts.keySet().forEach(this::addIndex);</span>
+        } else {
+<span class="fc" id="L167">            BitSet.valueOf(other.getBits()).stream().forEach(this::addIndex);</span>
+        }
+<span class="fc" id="L169">    }</span>
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws IllegalStateException If the counts overflow {@link Integer#MAX_VALUE}
+     */
+    @Override
+    public void merge(final Hasher hasher) {
+<span class="fc" id="L178">        verifyHasher(hasher);</span>
+<span class="fc" id="L179">        toStream(hasher).forEach(this::addIndex);</span>
+<span class="fc" id="L180">    }</span>
+
+    /**
+     * Increments the count for the bit index.
+     *
+     * @param idx the index.
+     * @throws IllegalStateException If the counts overflow {@link Integer#MAX_VALUE}
+     */
+    private void addIndex(int idx) {
+<span class="fc" id="L189">        final Integer val = counts.get(idx);</span>
+<span class="fc bfc" id="L190" title="All 2 branches covered.">        if (val == null) {</span>
+<span class="fc" id="L191">            counts.put(idx, 1);</span>
+<span class="fc bfc" id="L192" title="All 2 branches covered.">        } else if (val == Integer.MAX_VALUE) {</span>
+<span class="fc" id="L193">            throw new IllegalStateException(&quot;Overflow on index &quot; + idx);</span>
+        } else {
+<span class="fc" id="L195">            counts.put(idx, val + 1);</span>
+        }
+<span class="fc" id="L197">    }</span>
+
+    /**
+     * Removes the other Bloom filter from this one.
+     * &lt;p&gt;
+     * For each bit that is turned on in the other filter the count is decremented by 1.
+     * &lt;/p&gt;
+     *
+     * @param other the other filter.
+     * @throws IllegalStateException If the count for a decremented bit was already at zero
+     */
+    public void remove(final BloomFilter other) {
+<span class="fc" id="L209">        verifyShape(other);</span>
+<span class="fc bfc" id="L210" title="All 2 branches covered.">        if (other instanceof CountingBloomFilter) {</span>
+            // Only use the keys and not the counts
+<span class="fc" id="L212">            ((CountingBloomFilter) other).counts.keySet().forEach(this::subtractIndex);</span>
+        } else {
+<span class="fc" id="L214">            BitSet.valueOf(other.getBits()).stream().forEach(this::subtractIndex);</span>
+        }
+<span class="fc" id="L216">    }</span>
+
+    /**
+     * Decrements the counts for the bits that are on in the hasher from this
+     * Bloom filter.
+     * &lt;p&gt;
+     * For each bit that is identified by the hasher the count is decremented by 1.
+     * Duplicate bits are ignored.
+     * &lt;/p&gt;
+     *
+     * @param hasher the hasher to generate bits.
+     * @throws IllegalStateException If the count for a decremented bit was already at zero
+     */
+    public void remove(final Hasher hasher) {
+<span class="fc" id="L230">        verifyHasher(hasher);</span>
+<span class="fc" id="L231">        toStream(hasher).forEach(this::subtractIndex);</span>
+<span class="fc" id="L232">    }</span>
+
+    /**
+     * Decrements the count for the bit index.
+     *
+     * @param idx the index.
+     * @throws IllegalStateException If the count for a decremented bit was already at zero
+     */
+    private void subtractIndex(int idx) {
+<span class="fc" id="L241">        final Integer val = counts.get(idx);</span>
+<span class="fc bfc" id="L242" title="All 2 branches covered.">        if (val != null) {</span>
+<span class="fc bfc" id="L243" title="All 2 branches covered.">            if (val == 1) {</span>
+<span class="fc" id="L244">                counts.remove(idx);</span>
+            } else {
+<span class="fc" id="L246">                counts.put(idx, val - 1);</span>
+            }
+        } else {
+<span class="fc" id="L249">            throw new IllegalStateException(&quot;Underflow on index &quot; + idx);</span>
+        }
+<span class="fc" id="L251">    }</span>
+
+    /**
+     * Convert the hasher to a stream. Duplicates indices are removed.
+     *
+     * @param hasher the hasher
+     * @return the stream
+     */
+    private Stream&lt;Integer&gt; toStream(Hasher hasher) {
+<span class="fc" id="L260">        final Set&lt;Integer&gt; lst = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L261">        hasher.getBits(getShape()).forEachRemaining((Consumer&lt;Integer&gt;) lst::add);</span>
+<span class="fc" id="L262">        return lst.stream();</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc bfc" id="L267" title="All 2 branches covered.">        if (counts.isEmpty()) {</span>
+<span class="fc" id="L268">            return &quot;{}&quot;;</span>
+        }
+        // Allow 12 digits per entry: &quot;(x,y) &quot;
+        // This will handle up to 6-digit indices x each with a count y of 2-digits
+        // without resizing the buffer. The +1 is for the leading '{'.
+<span class="fc" id="L273">        final StringBuilder sb = new StringBuilder(counts.size() * 12 + 1);</span>
+<span class="fc" id="L274">        sb.append('{');</span>
+<span class="fc bfc" id="L275" title="All 2 branches covered.">        for (final Map.Entry&lt;Integer, Integer&gt; e : counts.entrySet()) {</span>
+<span class="fc" id="L276">            sb.append('(').append(e.getKey()).append(',')</span>
+<span class="fc" id="L277">                          .append(e.getValue()).append(&quot;) &quot;);</span>
+<span class="fc" id="L278">        }</span>
+        // Replace the final space with a close bracket
+<span class="fc" id="L280">        sb.setCharAt(sb.length() - 1, '}');</span>
+<span class="fc" id="L281">        return sb.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

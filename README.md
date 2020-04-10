@@ -1,10 +1,10 @@
 # SOEN6611_TeamS
-SOEN6611 Software Measurement Winter 2020 Term Project : Performance Metrics and Correlation Analysis on several Open Source Projects
+SOEN6611 Software Measurement Winter 2020 Term Project : Performance Metrics and Correlation Analysis on several Open Source Projects.
 
 
 
 ## Selected Metrics
-Statement coverage, Branch coverage, Mutation score of test suite, McCabe cyclomatic complexity, Code churn and Defect density.
+Statement coverage, Branch coverage, Mutation score of test suite, McCabe Cyclomatic Complexity, Code churn and Defect Density.
 
 ## Selected Open source projects
 <ol>
@@ -20,7 +20,7 @@ Statement coverage, Branch coverage, Mutation score of test suite, McCabe cyclom
   <dt>Jacoco reports<dt>
   <dd>Contains statement coverave, branch coverage, McCable Complexity, number of missed lines, number of missed methods, number of missed classes</dd>
   <dt>PIT report</dt>
-  <dd>Contains Line coverage and mutation score</dd>
+  <dd>Contains Line coverage and Mutation score</dd>
   <dt>Defect Density</dt>
   <dd>Contains number of defects, SLOC and corresponding defect density for each version</dd>
   <dt>Code churn</dt>
@@ -28,13 +28,13 @@ Statement coverage, Branch coverage, Mutation score of test suite, McCabe cyclom
   <dt>Correlation analysis</dt>
   <dd>
     <dl>
-      <dd>Correlation analysis between statement coverage and mutation score</dd>
-      <dd>Correlation analysis between branch coverage and mutation score</dd>
-      <dd>Correlation analysis between statement coverage and complexity score</dd>
-      <dd>Correlation analysis between branch coverage and complexity score</dd>
-      <dd>Correlation analysis between statement coverage and defect density</dd>
-      <dd>Correlation analysis between branch coverage and defect density</dd>
-      <dd>Correlation analysis between code churn and defect density</dd>
+      <dd>1. Correlation analysis between statement coverage and mutation score</dd>
+      <dd>2. Correlation analysis between branch coverage and mutation score</dd>
+      <dd>3. Correlation analysis between statement coverage and complexity score</dd>
+      <dd>4. Correlation analysis between branch coverage and complexity score</dd>
+      <dd>5. Correlation analysis between statement coverage and defect density</dd>
+      <dd>6. Correlation analysis between branch coverage and defect density</dd>
+      <dd>7. Correlation analysis between code churn and defect density</dd>
     </dl>
   </dd>
   </dl>

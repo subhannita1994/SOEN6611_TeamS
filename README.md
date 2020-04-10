@@ -40,7 +40,20 @@ Statement coverage, Branch coverage, Mutation score of test suite, McCabe cyclom
   </dl>
 
 ### Requirements
-
+<ul>
+  <li>Install Maven following these <a href = "http://maven.apache.org/install.html">instructions</a></li>
+  <li>Download the source code for the corresponding versions of each project from their SCM - 
+    <ul>
+      <li>Apache commons collections - </li>
+      <li>Apache commons FileUpload - </li>
+      <li>Apache commons IO - </li>
+    </ul>
+  </li>
+  <li>Replace the pom.xml files with the ones provided for each version. Make sure to change the JUnit plugin versions to at least 4.6 for compatibility with PIT tool</li>
+  <li>Clean and install the project</li>
+  <li>Run the project with goal - org.pitest:pitest-maven:mutationCoverage</li>
+  <li>Check for jacoco and pit reports in the target folder</li>
+</ul>
 
 ## Team information
 <table>
